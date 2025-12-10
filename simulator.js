@@ -222,9 +222,26 @@ function formatNumber(num, decimals = 2) {
     return num.toFixed(decimals).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+function formatNumberInput(value) {
+    // 쉼표와 숫자 이외의 문자 제거
+    const cleanValue = value.replace(/[^\d]/g, '');
+
+    // 빈 값이면 빈 문자열 반환
+    if (!cleanValue) return '';
+
+    // 숫자에 쉼표 추가
+    return parseInt(cleanValue).toLocaleString('en-US');
+}
+
+function getNumericValue(element) {
+    // input 요소에서 순수 숫자 값 추출
+    const value = element.value.replace(/[^\d]/g, '');
+    return parseFloat(value) || 0;
+}
+
 function updateCalculatedFields() {
     // 초기 투자금 기반 계산
-    const initialInvestment = parseFloat(document.getElementById('initialInvestment').value) || 0;
+    const initialInvestment = getNumericValue(document.getElementById('initialInvestment'));
     const insuranceReserve = initialInvestment * 0.1;
     const futuresSeed = initialInvestment * 0.9;
 
@@ -241,7 +258,7 @@ function updateCalculatedFields() {
 
 function runSimulation() {
     // 입력값 가져오기
-    const initialInvestment = parseFloat(document.getElementById('initialInvestment').value);
+    const initialInvestment = getNumericValue(document.getElementById('initialInvestment'));
     const leverage = parseInt(document.getElementById('leverage').value);
     const winCount = parseInt(document.getElementById('winCount').value);
     const lossCount = parseInt(document.getElementById('lossCount').value);
@@ -357,8 +374,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // 초기 계산값 업데이트
     updateCalculatedFields();
 
-    // 초기 투자금 변경 시
-    document.getElementById('initialInvestment').addEventListener('input', updateCalculatedFields);
+    // 초기 투자금 입력 필드 쉼표 포맷팅
+    const initialInvestmentInput = document.getElementById('initialInvestment');
+
+    initialInvestmentInput.addEventListener('input', function(e) {
+        const cursorPosition = e.target.selectionStart;
+        const oldValue = e.target.value;
+        const oldLength = oldValue.length;
+
+        // 쉼표 포맷 적용
+        const formatted = formatNumberInput(e.target.value);
+        e.target.value = formatted;
+
+        // 커서 위치 조정 (쉼표 추가/제거 시)
+        const newLength = formatted.length;
+        const lengthDiff = newLength - oldLength;
+        const newPosition = cursorPosition + lengthDiff;
+
+        // 커서 위치 복원
+        e.target.setSelectionRange(newPosition, newPosition);
+
+        // 계산값 업데이트
+        updateCalculatedFields();
+    });
 
     // 승리/패배 횟수 변경 시
     document.getElementById('winCount').addEventListener('input', updateCalculatedFields);
