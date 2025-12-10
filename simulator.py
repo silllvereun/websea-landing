@@ -56,28 +56,34 @@ AIRDROP_RATE_BY_ACTIVE_DAY = {
 class TradingSettings:
     """거래 설정값"""
     # 입력값 (노란색 - 사용자가 변경 가능)
-    initial_investment: float = 10000.0  # 초기 투자금 (B3)
-    leverage: int = 25  # 레버리지 (B6)
-    win_count: int = 75  # 승리 횟수 (B12)
-    loss_count: int = 90  # 패배 횟수 (B13)
-
-    # 추가 입력값
-    market_add_rate: float = 0.0006  # 시장가 기준 추가물량 (B7)
-    fail_1st_add_rate: float = 0.015  # 설패 1차 수추물량 (B8)
-    monthly_fee_rate: float = 0.03  # 1개월 강의(전업+창업) 수수료율 (B9)
+    initial_investment: float = 10000.0  # 초기 투자금
+    leverage: int = 25  # 레버리지
+    win_count: int = 75  # 승리 횟수
+    loss_count: int = 30  # 패배 횟수 (수정: 90 → 30)
 
     # 고정값 (회색)
-    booting_rate: float = 0.10  # 부팅률 10% (B4)
-    daily_fee_rate: float = 0.0066  # 일일 수수료 (B11)
-    self_referral_rate: float = 0.40  # 셀프 레퍼럴 (B10)
-    win_profit_rate: float = 0.01  # 자드 비트 비율 (B16)
-    loss_rate: float = -0.01  # 손절 비율 (B17, 보통 -1%)
-    bond_lever_ratio: float = 0.40  # 본드 레버 비율 (B18)
+    booting_rate: float = 0.10  # 보험금 10%
+    insurance_reserve: float = 1000.0  # 보험금 (계산됨)
+
+    # 거래 수수료
+    base_fee_rate: float = 0.0006  # 지정가 기본 수수료율 0.06%
+    actual_fee_per_trade: float = 0.015  # 실제 수수료율(1회) 1.5%
+    trade_fee_rate: float = 0.03  # 1거래 완결 수수료율 3%
+    self_referral_rate: float = 0.40  # 셀프 레퍼럴 비율 40%
+    daily_trades: int = 105  # 1일 거래 횟수
+
+    # 봇 설정
+    seed_rate: float = 0.01  # 시드 비율 1%
+    win_profit_rate: float = 0.05  # 익절률 5%
+    loss_rate: float = 0.10  # 손절률 10% (절대값)
 
     # 보험 설정
-    node_cost: int = 100  # 1노드 생성 기준 손실 (B21, USDT)
-    node_activation_delay: int = 3  # 노드 스두잉수(3일) (B23)
-    node_expiry_days: int = 50  # 노드 만성잉수(50일) (B26)
+    node_cost: int = 100  # 1노드 생성 기준 손실 (USDT)
+    airdrop_per_day: int = 2  # 하루 에어드랍 횟수
+    node_activation_delay: int = 3  # 펜딩일수 3일
+    total_airdrop_count: int = 100  # 노드당 총 에어드랍 횟수
+    node_active_days: int = 50  # 활성일수 50일
+    node_expiry_days: int = 53  # 노드 수명일수 53일
 
     def get_capital_seed(self) -> float:
         """자금 시드 계산 (B5)"""
@@ -193,78 +199,31 @@ class TradingSimulator:
         capital_plus_claim = start_capital + cumulative_claim  # =SUM(C3:D3)
 
         # E: 시드(1%)
-        seed = capital_plus_claim * 0.01  # Assuming '기본 설정값'!$B$16 is 1%
-        # 실제로는 settings에 있는 값을 사용해야 함
-        seed = capital_plus_claim * self.settings.win_profit_rate
+        # e = B3 * seed_rate (1%)
+        seed = capital_plus_claim * self.settings.seed_rate
 
         # F, G: 승리/패배 횟수 (기본값 사용, 일별 변경 가능)
-        win_count = self.settings.win_count  # ='기본 설정값'!$B$12
-        loss_count = self.settings.loss_count  # ='기본 설정값'!$B$13
+        win_count = self.settings.win_count
+        loss_count = self.settings.loss_count
 
         # H: 총 익절 금액
-        # =$E3*'기본 설정값'!$B$17*$F3
-        # B17은 win_profit_rate (1% = 0.01)
-        total_profit = seed * win_count  # 이미 seed가 1%이므로 win_count만 곱함
-        # 다시 확인: E는 이미 B*win_profit_rate인데, H는 E*B17*F인가?
-        # 수식대로: E * B17 * F
-        total_profit = seed * win_count  # seed = B * 0.01이고, H = E * ? * F
-        # 원 수식: $E3*'기본 설정값'!$B$17*$F3
-        # E3 = seed, B17 = win_profit_rate (0.01로 가정), F3 = win_count
-        # 이건 이상한데... E가 이미 1%인데 또 B17을 곱하면 0.01%가 됨
-        # 다시 보니 E = B3 * B16 (시드 비율)
-        # H = E * B17 (승리율) * F (승리 횟수)
-        # 아마도 B16은 시드 비율, B17은 승리당 수익률
-        # 혼란을 피하기 위해 수식 그대로 구현
-        # E = capital_plus_claim * 시드비율(가정: 0.01)
-        # H = E * 승리수익률(B17 가정: 1) * 승리횟수
+        # h = E * win_profit_rate * win_count
+        # 예: 90 * 5% * 75 = 337.5
+        total_profit = seed * self.settings.win_profit_rate * win_count
 
-        # 재정의: 설정값 확인
-        # 사용자가 준 정보: B16 = 패배횟수, B17 = ?
-        # 다시 보니: B16은 "자드 비트 비율", B17은 "설패 수추물량"이 아니라
-        # 보험 섹션 전에 있는 값들
-
-        # 다시 정리 (사용자 제공 정보 기반):
-        # B16: 패배 횟수 (아님, 승리 횟수가 B12)
-        # 혼란스러우니 수식 그대로:
-        # E = B * 0.0066 (추정)
-        # 아니면 E = B * (일일 시드 비율)
-
-        # 명확히 하기 위해 수식 재확인:
-        # e=B3 *'기본 설정값'!$B$16
-        # 사용자 첫 메시지 확인: B16이 뭔지...
-        # "시장가 기준 추가물량" = B7 = 0.0066
-        # "자드 비트 비율" 등의 용어가 없음
-
-        # 일단 주어진 수식대로 구현:
-        # B16을 시드 비율로 가정 (1% = 0.01)
-        seed_rate = 0.01  # 가정
-        seed = capital_plus_claim * seed_rate
-
-        # H = E * B17 * F
-        # B17을 win_profit_rate로 가정
-        win_profit_multiplier = 1.0  # 승리당 100% 수익이면 1.0
-        total_profit = seed * win_profit_multiplier * win_count
-
-        # I: 총 손절 금액
-        # =$E3*'기본 설정값'!$B$18*$G3
-        # B18 = bond_lever_ratio (0.4) 또는 loss_rate?
-        # 수식: E * B18 * G
-        # B18을 loss_rate로 가정 (-0.01 또는 절대값)
-        loss_rate_value = abs(self.settings.loss_rate)  # 0.01
-        total_loss = seed * loss_rate_value * loss_count
+        # I: 총 손절 금액 (음수)
+        # i = -E * loss_rate * loss_count
+        # 예: -90 * 10% * 30 = -270
+        total_loss_negative = -seed * self.settings.loss_rate * loss_count
 
         # J: 일일 손익
-        daily_pnl = total_profit + total_loss  # loss는 음수여야 하므로 -total_loss
-        # 수식: =$H3+$I3
-        # I가 음수 손실이면 그대로 더함
-        total_loss_negative = -total_loss  # 손실은 음수
+        # j = H + I
         daily_pnl = total_profit + total_loss_negative
 
         # K: 일일 수수료
-        # =$E3*'기본 설정값'!$B$9*'기본 설정값'!$B$11
-        # B9 = monthly_fee_rate (0.03)
-        # B11 = daily_fee_rate (0.0066)
-        daily_fee = seed * self.settings.monthly_fee_rate * self.settings.daily_fee_rate
+        # k = E * trade_fee_rate * daily_trades
+        # 예: 90 * 3% * 105 = 283.5
+        daily_fee = seed * self.settings.trade_fee_rate * self.settings.daily_trades
 
         # L: 셀프 레퍼럴
         # =$K3*'기본 설정값'!$B$10
@@ -281,8 +240,8 @@ class TradingSimulator:
         end_capital = start_capital + net_pnl
 
         # O: 보험 노드 누적
-        # =-$I3
-        insurance_node_cumulative = -total_loss_negative  # = total_loss (양수)
+        # = abs(I) = 손실 금액의 절대값
+        insurance_node_cumulative = abs(total_loss_negative)  # 양수로 변환
 
         # P: 당일 생성 노드
         # =INT( $O3 / '기본 설정값'!$B$21 )
@@ -311,7 +270,7 @@ class TradingSimulator:
 
         # T: 만료된 노드 수
         # =IF($A3 <= '기본 설정값'!$B$26, 0, INDEX($P$3:$P$986, $A3 - '기본 설정값'!$B$26))
-        # B26 = node_expiry_days (50)
+        # B26 = node_expiry_days (53)
         if day <= self.settings.node_expiry_days:
             expired_nodes = 0
         else:
@@ -514,7 +473,7 @@ if __name__ == "__main__":
         initial_investment=10000.0,
         leverage=25,
         win_count=75,
-        loss_count=90
+        loss_count=30  # 수정: 90 → 30
     )
 
     # 시뮬레이터 실행
