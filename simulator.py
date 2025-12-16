@@ -38,18 +38,27 @@ AIRDROP_RATE_BY_ROUND = {
     96: 3.08, 97: 3.19, 98: 3.3, 99: 3.4167, 100: 3.5133
 }
 
-AIRDROP_RATE_BY_ACTIVE_DAY = {
-    1: 0.2067, 2: 0.2267, 3: 0.2467, 4: 0.2667, 5: 0.2867,
-    6: 0.31, 7: 0.3333, 8: 0.36, 9: 0.3867, 10: 0.4133,
-    11: 0.4467, 12: 0.4834, 13: 0.5166, 14: 0.5566, 15: 0.5966,
-    16: 0.6434, 17: 0.69, 18: 0.74, 19: 0.7933, 20: 0.8533,
-    21: 0.9167, 22: 0.9833, 23: 1.0567, 24: 1.1334, 25: 1.2167,
-    26: 1.3033, 27: 1.4033, 28: 1.5067, 29: 1.6133, 30: 1.73,
-    31: 1.8533, 32: 1.9867, 33: 2.13, 34: 2.2866, 35: 2.45,
-    36: 2.6267, 37: 2.8166, 38: 3.02, 39: 3.2367, 40: 3.4734,
-    41: 3.7233, 42: 3.99, 43: 4.28, 44: 4.5866, 45: 4.92,
-    46: 5.2733, 47: 5.65, 48: 6.0567, 49: 6.49, 50: 6.93
-}
+
+def build_active_day_rates(drops_per_day: int) -> Dict[int, float]:
+    """
+    AIRDROP_RATE_BY_ROUND를 drops_per_day로 묶어 활성일별 에어드랍 금액 테이블 생성.
+    예) drops_per_day=2 => (1+2), (3+4) ... 50일치
+        drops_per_day=3 => (1+2+3), (4+5+6) ...
+    """
+    if drops_per_day <= 0:
+        drops_per_day = 1
+
+    round_rates = [rate for _, rate in sorted(AIRDROP_RATE_BY_ROUND.items())]
+
+    grouped: Dict[int, float] = {}
+    day_index = 1
+    for i in range(0, len(round_rates), drops_per_day):
+        grouped[day_index] = sum(round_rates[i:i + drops_per_day])
+        day_index += 1
+        if day_index > 50:
+            break
+
+    return grouped
 
 
 @dataclass
@@ -126,19 +135,21 @@ class DayResult:
 class AirdropSimulation:
     """에어드랍 시뮬레이션 관리"""
 
-    def __init__(self, max_days: int = 200, max_nodes: int = 50):
+    def __init__(self, max_days: int = 200, max_nodes: int = 50, active_day_rates: Optional[Dict[int, float]] = None):
         self.max_days = max_days
         self.max_nodes = max_nodes
         # 에어드랍 데이터: airdrop_data[day][node_index] = amount
         self.airdrop_data: Dict[int, Dict[int, float]] = {}
+        self.active_day_rates = active_day_rates or {}
 
-    def calculate_node_airdrop(self, node_index: int, active_day: int) -> float:
+    def calculate_node_airdrop(self, node_index: int, active_day: int, drops_per_day: int = 2) -> float:
         """특정 노드의 특정 활성일 에어드랍 금액 계산"""
         if active_day <= 0 or active_day > 50:
             return 0.0
-        return AIRDROP_RATE_BY_ACTIVE_DAY.get(active_day, 0.0)
+        rate_table = self.active_day_rates or build_active_day_rates(drops_per_day)
+        return rate_table.get(active_day, 0.0)
 
-    def get_daily_airdrop_total(self, day: int, active_nodes_history: List[Tuple[int, int]]) -> float:
+    def get_daily_airdrop_total(self, day: int, active_nodes_history: List[Tuple[int, int]], drops_per_day: int = 2) -> float:
         """
         특정 일의 에어드랍 총액 계산
         active_nodes_history: [(node_created_day, node_index), ...]
@@ -148,7 +159,7 @@ class AirdropSimulation:
             # 노드가 생성된 후 며칠째인지 계산
             active_day = day - node_created_day + 1
             if 1 <= active_day <= 50:
-                total += self.calculate_node_airdrop(node_index, active_day)
+                total += self.calculate_node_airdrop(node_index, active_day, drops_per_day)
         return total
 
 
@@ -159,7 +170,8 @@ class TradingSimulator:
         self.settings = settings
         self.simulation_days = simulation_days
         self.results: List[DayResult] = []
-        self.airdrop_sim = AirdropSimulation()
+        self.active_day_rates = build_active_day_rates(self.settings.airdrop_per_day)
+        self.airdrop_sim = AirdropSimulation(active_day_rates=self.active_day_rates)
 
         # 노드 추적: {day: newly_activated_count}
         self.node_activation_tracker: Dict[int, int] = {}
@@ -396,7 +408,12 @@ class TradingSimulator:
                 continue  # 활성 범위 밖
 
             # 각 노드의 에어드랍 금액
-            airdrop_per_node = AIRDROP_RATE_BY_ACTIVE_DAY.get(active_day, 0.0)
+            rate = self.active_day_rates.get(active_day)
+            if rate is None:
+                # 동적으로 생성 (예: airDrop_per_day 변경 시 대비)
+                self.active_day_rates = build_active_day_rates(self.settings.airdrop_per_day)
+                rate = self.active_day_rates.get(active_day, 0.0)
+            airdrop_per_node = rate
             total += airdrop_per_node * nodes_created
 
         return total

@@ -360,10 +360,10 @@ function createRowHTML(result) {
     const dailyPnlClass = result.dailyPnl >= 0 ? 'positive' : 'negative';
 
     return `
-        <td>${result.day}</td>
-        <td>${formatNumber(result.capitalPlusClaim, 0)}</td>
+        <td class="sticky-col-1">${result.day}</td>
+        <td class="sticky-col-2">${formatNumber(result.totalCapital, 0)}</td>
+        <td class="sticky-col-3">${formatNumber(result.capitalPlusClaim, 0)}</td>
         <td>${formatNumber(result.startCapital, 0)}</td>
-        <td>${formatNumber(result.cumulativeClaim, 0)}</td>
         <td>${formatNumber(result.seed, 2)}</td>
         <td>${result.winCount}</td>
         <td>${result.lossCount}</td>
@@ -378,12 +378,11 @@ function createRowHTML(result) {
         <td>${result.newNodesToday}</td>
         <td>${formatNumber(result.carryoverLoss, 2)}</td>
         <td>${result.waitingNodes}</td>
-        <td>${result.activeNodes}</td>
+        <td class="text-accent">${result.activeNodes}</td>
         <td>${result.expiredNodes}</td>
         <td>${result.newlyActivatedNodes}</td>
-        <td class="positive">${formatNumber(result.todayAirdropTotal, 2)}</td>
+        <td class="text-white">${formatNumber(result.todayAirdropTotal, 2)}</td>
         <td class="positive">${formatNumber(result.cumulativeAirdrop, 2)}</td>
-        <td>${formatNumber(result.totalCapital, 0)}</td>
     `;
 }
 
@@ -456,7 +455,7 @@ function displayResults(results) {
     document.getElementById('finalCapital').innerHTML =
         formatNumber(finalResult.totalCapital, 0) + '<span class="unit">USDT</span>';
 
-    const netProfit = finalResult.endCapital - initialCapital;
+    const netProfit = finalResult.totalCapital - initialCapital;
     const profitElement = document.getElementById('netProfit');
     profitElement.innerHTML = formatNumber(netProfit, 0) + '<span class="unit">USDT</span>';
     profitElement.className = 'value ' + (netProfit >= 0 ? 'positive' : 'negative');
@@ -464,8 +463,10 @@ function displayResults(results) {
     document.getElementById('totalAirdrop').innerHTML =
         formatNumber(finalResult.cumulativeAirdrop, 2) + '<span class="unit">USDT</span>';
 
-    document.getElementById('activeNodes').innerHTML =
+    const activeNodesElement = document.getElementById('activeNodes');
+    activeNodesElement.innerHTML =
         finalResult.activeNodes + '<span class="unit">개</span>';
+    activeNodesElement.className = 'value text-accent';
 
     // 테이블 초기화
     const tbody = document.getElementById('resultsBody');

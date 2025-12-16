@@ -344,6 +344,44 @@
             color: #ff4d4d;
         }
 
+        .text-white {
+            color: #ffffff;
+        }
+
+        .text-accent {
+            color: var(--accent-green);
+        }
+
+        .sticky-col-1 {
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .sticky-col-2 {
+            position: sticky;
+            left: 110px;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        th.sticky-col-1,
+        th.sticky-col-2 {
+            z-index: 3;
+        }
+
+        .sticky-col-3 {
+            position: sticky;
+            left: 220px;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        th.sticky-col-3 {
+            z-index: 3;
+        }
+
         /* Loading Animation */
         .loading {
             display: none;
@@ -644,10 +682,10 @@
                 <table id="resultsTable">
                     <thead>
                         <tr>
-                            <th>일차</th>
-                            <th>총 운용 자본</th>
+                            <th class="sticky-col-1">일차</th>
+                            <th class="sticky-col-2">총 자본</th>
+                            <th class="sticky-col-3">총 운용 자본</th>
                             <th>시작 자본</th>
-                            <th>누적 Claim 합계</th>
                             <th>시드(1%)</th>
                             <th>승리 횟수</th>
                             <th>패배 횟수</th>
@@ -667,7 +705,6 @@
                             <th>새로 활성된 노드 수</th>
                             <th>오늘 에어드랍 총액</th>
                             <th>누적 에어드랍 합계</th>
-                            <th>총 자본</th>
                         </tr>
                     </thead>
                     <tbody id="resultsBody">
